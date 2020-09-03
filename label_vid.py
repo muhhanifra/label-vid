@@ -3,7 +3,6 @@ import tkinter as tk
 import numpy as np
 from PIL import ImageTk, Image
 import cv2
-from guiLoop import guiLoop
 import os
 import json
 import pandas as pd
