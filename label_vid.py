@@ -50,10 +50,13 @@ class video_annotator():
         #user inputs------
         self.anno_entry = tk.Entry(self.root, width = 50, borderwidth = 5)
         self.anno_entry.bind("<Return>",self.add_annotation)
-        self.anno_entry.bind("<Shift_R>",self.play_button)
-        self.anno_entry.bind("<Up>", self.move_to_prev_vid)
-        self.anno_entry.bind("<Down>", self.move_to_next_vid)
-        #another key 
+        self.anno_entry.bind("<Control-space>",self.play_button)
+        self.anno_entry.bind("<Control-Up>", self.move_to_prev_vid) 
+        self.anno_entry.bind("<Control-Down>", self.move_to_next_vid) 
+        self.anno_entry.bind("<Control-d>", self.delete_1_output)
+        self.anno_entry.bind("<Control-f>", self.delete_all_output)
+        self.anno_entry.bind("<Up>", self.jump_frame_left)
+        self.anno_entry.bind("<Down>", self.jump_frame_right)
 
         self.annotate = tk.Button(self.root, text = 'annotate', command = self.add_annotation)
         self.play = tk.Button(self.root, text = 'play/pause',command = self.play_button)
@@ -62,8 +65,9 @@ class video_annotator():
                                     to = self.vid_length,orient ='horizontal',
                                     command = self.slider_frame,
                                     width = 20, length = 500)
-
-        self.delete_output = tk.Button(self.root, text = 'Delete Annonation', command = self.delete_output)
+        #delete buttons-----------------
+        self.delete_1_output = tk.Button(self.root, text = 'Delete annotation', command = self.delete_1_output)
+        self.delete_output = tk.Button(self.root, text = 'Delete all annonations', command = self.delete_all_output)
 
         #listbox and scrollbars-------
         self.listbox_frame = tk.Frame(self.root)
@@ -73,7 +77,7 @@ class video_annotator():
         for file_path in self.file_paths:
             self.vid_list_box.insert('end', file_path)
         self.vid_list_box.bind("<Double-Button-1>", self.select_vid)
-        self.vid_list_box.selection_set(self.file_index)
+        #self.vid_list_box.selection_set(self.file_index) #----------------------------------------------EDIT
 
         #text labels-------
         self.iterator = tk.Label(self.root, text = '')
@@ -94,7 +98,8 @@ class video_annotator():
         self.anno_entry.grid(row=4, column =0)
         self.annotate.grid(row=5, column =0)
         self.annotation_label.grid(row=6, column =0)
-        self.delete_output.grid(row =7, column = 0)
+        self.delete_1_output.grid(row = 7, column = 0)
+        self.delete_output.grid(row =8, column = 0)
         self.listbox_frame.grid(row=0, column = 1, columnspan=2)
         self.list_scrollbar.pack(side=tk.RIGHT, fill =tk.Y)
         self.vid_list_box.pack()
@@ -210,10 +215,29 @@ class video_annotator():
         for frame_i in list(data['annotations'][0].keys()):
             self.annotation_outputs[int(frame_i)] = data['annotations'][0][frame_i]
 
-    def delete_output(self):
+    def delete_all_output(self, event = None):
         self.annotation_outputs = {}
         self.annotation_label_var.set(self.annotation_outputs)
         self.dump_to_json()
+    
+    def delete_1_output(self, event = None):
+        self.annotation_outputs.pop(list(self.annotation_outputs.keys())[-1])
+        self.annotation_label_var.set(self.annotation_outputs)
+        self.dump_to_json()
+    
+    def jump_frame_right(self, event = None):
+        self.frame = self.frame + 20
+        self.vid_slider.set(self.frame)
+        if self.frame >=self.vid_length:
+            self.frame = self.vid_length
+        self.preprocess_and_update_image()
+
+    def jump_frame_left(self, event = None):
+        self.frame = self.frame - 20
+        self.vid_slider.set(self.frame)
+        if self.frame <=0:
+            self.frame = 0
+        self.preprocess_and_update_image()
     
 if __name__ == "__main__":
     app = video_annotator()
