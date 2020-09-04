@@ -5,7 +5,6 @@ from PIL import ImageTk, Image
 import cv2
 import os
 import json
-import pandas as pd
 
 class video_annotator():
     def __init__(self):
@@ -25,17 +24,23 @@ class video_annotator():
                     self.file_paths.append(os.path.join(self.main_dir,fn))
         print(self.file_paths)
 
+        self.current_dir = self.file_paths[0]
         #root init----
         self.root = tk.Tk()
 
         #important var init----
         self.annotation_outputs = {}
+        try:
+            self.load_existing_output()
+        except:
+            pass
         self.slider_val = 0
         self.video_state = True
         self.frame = 0
+        self.file_index = 0
         
         #image--------------
-        self.current_dir = self.file_paths[0]
+        
         self.frame_delay = 30
         self.cap = cv2.VideoCapture(self.current_dir)
         self.vid_length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
@@ -46,6 +51,8 @@ class video_annotator():
         self.anno_entry = tk.Entry(self.root, width = 50, borderwidth = 5)
         self.anno_entry.bind("<Return>",self.add_annotation)
         self.anno_entry.bind("<Shift_R>",self.play_button)
+        self.anno_entry.bind("<Up>", self.move_to_prev_vid)
+        self.anno_entry.bind("<Down>", self.move_to_next_vid)
         #another key 
 
         self.annotate = tk.Button(self.root, text = 'annotate', command = self.add_annotation)
@@ -56,17 +63,24 @@ class video_annotator():
                                     command = self.slider_frame,
                                     width = 20, length = 500)
 
-        self.reset = tk.Button(self.root, text = 'reset', command = self.reset_var)
-        self.vid_list_box = tk.Listbox(self.root)
+        self.delete_output = tk.Button(self.root, text = 'Delete Annonation', command = self.delete_output)
+
+        #listbox and scrollbars-------
+        self.listbox_frame = tk.Frame(self.root)
+        self.list_scrollbar = tk.Scrollbar(self.listbox_frame, orient = tk.VERTICAL)
+        self.vid_list_box = tk.Listbox(self.listbox_frame, width = 40, yscrollcommand = self.list_scrollbar)
+        self.list_scrollbar.config(command=self.vid_list_box.yview)
         for file_path in self.file_paths:
             self.vid_list_box.insert('end', file_path)
         self.vid_list_box.bind("<Double-Button-1>", self.select_vid)
+        self.vid_list_box.selection_set(self.file_index)
+
         #text labels-------
         self.iterator = tk.Label(self.root, text = '')
         self.iterator.after(1, self.increment_frame)
         self.annotation_cat = 'none'
         self.annotation_label_var = tk.StringVar()
-        self.annotation_label_var.set({})
+        self.annotation_label_var.set(self.annotation_outputs)
         self.annotation_label = tk.Label(self.root, textvariable = self.annotation_label_var)
         self.slider_var = tk.StringVar()
         self.slider_var.set(str(self.slider_val))
@@ -80,8 +94,11 @@ class video_annotator():
         self.anno_entry.grid(row=4, column =0)
         self.annotate.grid(row=5, column =0)
         self.annotation_label.grid(row=6, column =0)
-        self.reset.grid(row =7, column = 0)
-        self.vid_list_box.grid(row=0, column =2)
+        self.delete_output.grid(row =7, column = 0)
+        self.listbox_frame.grid(row=0, column = 1, columnspan=2)
+        self.list_scrollbar.pack(side=tk.RIGHT, fill =tk.Y)
+        self.vid_list_box.pack()
+        
 
         self.root.mainloop()
 
@@ -90,6 +107,10 @@ class video_annotator():
         self.vid_length = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)) - 1
         #important var init----
         self.annotation_outputs = {}
+        try:
+            self.load_existing_output()
+        except:
+            pass
         self.slider_val = 0
         self.video_state = True
         self.frame = 0
@@ -150,7 +171,49 @@ class video_annotator():
         current_dir_name = self.current_dir.split('.')[0]
         with open('{}.json'.format(current_dir_name), 'w') as json_file:
             json.dump(self.json_output, json_file)
-    
 
+    def move_to_next_vid(self, event = None):
+        try:
+            self.vid_list_box.selection_clear(self.vid_list_box.curselection()[0])
+        except:
+            pass
+        self.file_index+=1
+        if self.file_index >= len(self.file_paths) - 1:
+            self.file_index = len(self.file_paths) - 1
+        self.vid_list_box.selection_set(self.file_index)
+
+        self.current_dir = self.file_paths[self.file_index]
+        self.cap.release()
+        self.cap = cv2.VideoCapture(self.current_dir)
+        self.reset_var()
+
+    def move_to_prev_vid(self, event = None):
+        try:
+            self.vid_list_box.selection_clear(self.vid_list_box.curselection()[0])
+        except:
+            pass
+
+        self.file_index-=1
+        if self.file_index<=0:
+            self.file_index = 0  
+        self.vid_list_box.selection_set(self.file_index)
+
+        self.current_dir = self.file_paths[self.file_index]
+        self.cap.release()
+        self.cap = cv2.VideoCapture(self.current_dir)
+        self.reset_var()
+
+    def load_existing_output(self):
+        current_dir_name = self.current_dir.split('.')[0]
+        with open('{}.json'.format(current_dir_name)) as json_file:
+            data = json.load(json_file)
+        for frame_i in list(data['annotations'][0].keys()):
+            self.annotation_outputs[int(frame_i)] = data['annotations'][0][frame_i]
+
+    def delete_output(self):
+        self.annotation_outputs = {}
+        self.annotation_label_var.set(self.annotation_outputs)
+        self.dump_to_json()
+    
 if __name__ == "__main__":
     app = video_annotator()
